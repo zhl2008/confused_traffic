@@ -112,6 +112,6 @@ url_label = '/shell.php'
 #config for trash traffic generator
 traffic_msg_file = './trash_traffic/tmp/msg_result_127.0.0.1_81'
 traffic_thread_num = 5
-
+target_site_logs_file  = '127.0.0.1:81'
 
 ###################

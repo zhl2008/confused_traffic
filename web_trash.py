@@ -33,13 +33,11 @@ ac_lang = ['en-US,en;q=0.8,zh-Hans-CN;q=0.5,zh-Hans;q=0.3',
 "zh-CN,zh;q=0.8,en;q=0.6",
 "zh-CN,zh;q=0.8"
 ]
+global GLOBAL_PAYLOAD
+GLOBAL_PAYLOAD=[]
 
-def dir_flush(tmp_name):
-    f=open("./trash_traffic/tmp/msg_result"+tmp_name,"wb")
-    f.close()
-
-
-def generate(file_ptr,hd,input,br,results_list=None):
+def generate(hd,input,br,results_list=None):
+    global GLOBAL_PAYLOAD
     if not input:
         #file_ptr.write(hd+br)
         return 0
@@ -49,30 +47,26 @@ def generate(file_ptr,hd,input,br,results_list=None):
         strs=""
         for i in tmp:
             strs+=i+"="+tmp[i][0]+"&"
-        print strs.strip()
+        #print strs.strip()
         content = strs.strip().encode('utf8')
         #results_list.append(hd+strs[:-1]+br)
-        print hd+content+br
-        file_ptr.write(hd+content+br)
+        #print hd+content+br
+        GLOBAL_PAYLOAD.append(hd+content+br)
     return 0
 
 def load_proxy(file_path, tmp_name=''):
     f = open(file_path,"rb")
     rd = f.readlines()
-    tmp_name = tmp_name.replace(':','_')
-    fmsg = open("./trash_traffic/tmp/msg_result"+tmp_name,"ab")
-    results=[]
     for i in rd:#[::-1]:
         pack = json.loads(i)
         if pack['method']=='GET':
             hd = "GET*---craso---*"+pack['path']+"*---craso---*"
-            generate(fmsg,hd,pack['query'],"\r\n")
+            generate(hd,pack['query'],"\r\n")
             #generate(fmsg,hd,pack['query'],"\r\n",results)
         elif pack['method']=='POST':
             hd = "POST*---craso---*"+pack['path']+"*---craso---*"
-            generate(fmsg,hd,pack['content'],"\r\n")
+            generate(hd,pack['content'],"\r\n")
             #generate(fmsg,hd,pack['content'],"\r\n",results)
-    fmsg.close()
     f.close()
     return 0
 
@@ -158,7 +152,7 @@ def send(hosts,msgs):
         if headers.has_key('Hacked by'):
             headers.pop('Hacked by')
         if rnds==0:
-            headers['Hacked by']="Redbud"
+            headers['Hacked by'] = "Redbud"
         headers['Accept-Language']=ac_lang[random.randint(0,len(ac_lang)-1)]
 
         #print headers#['User-Agent']
@@ -172,23 +166,25 @@ def send(hosts,msgs):
             ip,port = host[:-1].split(":")
             try:
                 print contents[0]+" "+ip+":"+port+contents[1]+"?"+contents[2].format(crasolee_para=quote(trash()),crasolee_para0=para_key())
-                tmp = http(contents[0],ip,int(port),contents[1]+"?"+contents[2].format(crasolee_para=quote(trash()),crasolee_para0=para_key()),contents[2].format(crasolee_para=quote(trash()),crasolee_para0=para_key()),headers)
+                if contents[0]=='get' or contents[0]=='GET':
+                    tmp = http(contents[0],ip,int(port),contents[1]+"?"+contents[2].format(crasolee_para=quote(trash()),crasolee_para0=para_key()),'',headers)
+                else:
+                    tmp = http(contents[0],ip,int(port),contents[1],contents[2].format(crasolee_para=quote(trash()),crasolee_para0=para_key()),headers)
             except Exception,e:
                 print e
         time.sleep(1)
 
-def attack(host_file="./data/ip.data", msg_file=traffic_msg_file):
+def attack(host_file="./data/ip.data"):
     hosts = open(host_file).readlines()
-    msgs = open(msg_file).readlines()
+    msgs = GLOBAL_PAYLOAD
     send(hosts,msgs)
 
-def init_msg_file():
-    dirList=[i for i in os.listdir('./trash_traffic/logs/') if os.path.isdir(os.path.join('./trash_traffic/logs/',i))]
-    for dir_name in dirList:
-        dir_flush('_'+dir_name)
-        files=[i for i in os.listdir('./trash_traffic/logs/'+dir_name) if os.path.isfile(os.path.join('./trash_traffic/logs/'+dir_name,i))]
-        for file_path in files:
-            load_proxy('./trash_traffic/logs/'+dir_name+'/'+file_path,'_'+dir_name)
+def init_global_payload(dir_name):
+    files=[i for i in os.listdir('./trash_traffic/logs/'+dir_name) if os.path.isfile(os.path.join('./trash_traffic/logs/'+dir_name,i))]
+    for file_path in files:
+        load_proxy('./trash_traffic/logs/'+dir_name+'/'+file_path,'_'+dir_name)
+
+
 
 if __name__ == '__main__': 
     headers = {
@@ -199,8 +195,7 @@ if __name__ == '__main__':
         "Content-Type": "application/x-www-form-urlencoded",
         "Connection": "keep-alive"
     }
-    init_msg_file()
-    
+    init_global_payload(target_site_logs_file)
     for i in xrange(0,traffic_thread_num):
         print "start a new round of dirty"
         print 'thread %s is running...' % threading.current_thread().name
